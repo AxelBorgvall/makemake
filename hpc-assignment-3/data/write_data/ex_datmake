@@ -1,0 +1,25 @@
+CC = gcc
+CFLAGS = -Wall -Wextra -std=c99
+LDFLAGS = -lm
+
+TARGET = write_data
+SOURCE = write_data.c
+
+# Detect OS and set executable extension
+ifeq ($(OS),Windows_NT)
+    EXE = .exe
+    RM = del /f $(TARGET)$(EXE)
+else
+    EXE =
+    RM = rm -f $(TARGET)
+endif
+
+all: $(TARGET)$(EXE)
+
+$(TARGET)$(EXE): $(SOURCE)
+	$(CC) $(CFLAGS) -o $@ $(SOURCE) $(LDFLAGS)
+
+clean:
+	$(RM)
+
+.PHONY: all clean
