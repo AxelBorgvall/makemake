@@ -28,7 +28,11 @@ setup(
     },
 )
 ```
+You run pip install -e . in your project folder.
 
+Python creates a wrapper called makemake in your Python's /Scripts or /bin folder (which is already in your PATH).
+
+Now, you can just type makemake in any folder, and it runs.
 # arguments
 Make it so that different types can be set for different targets in one makefile. Default binary, if in include/lib make it a library. 
 --v # verbose
@@ -59,3 +63,6 @@ Step 2: Script prints:
 -> Found player.c, physics.c, utils.c
 ✅ Generated Makefile with 2 targets.
 Step 3: User types ls to show the new Makefile.
+
+# limitations
+- Assumes corresponding .h and .c files share the same name
