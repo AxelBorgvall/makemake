@@ -143,7 +143,8 @@ def write_rules(targets,file_dependencies,c_files,templates,args,build_name):
         
         # Link into an executable
         rules_string+=templates['link'].render(
-            all_objs=["\\\n\t"+str(src.relative_to(pathlib.Path.cwd()).as_posix()).replace('.c','.o') for src in sources],
+            # all_objs=["\\\n\t"+str(src.relative_to(pathlib.Path.cwd()).as_posix()).replace('.c','.o') for src in sources],
+            all_objs=["\\\n\t"+build_name+"/"+src.stem+".o" for src in sources],
             bin_path=args.binary_directory+"/"+t.stem
         )+"\n\n"
     return rules_string
