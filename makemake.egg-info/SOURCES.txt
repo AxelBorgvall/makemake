@@ -1,0 +1,8 @@
+makemake.py
+setup.py
+makemake.egg-info/PKG-INFO
+makemake.egg-info/SOURCES.txt
+makemake.egg-info/dependency_links.txt
+makemake.egg-info/entry_points.txt
+makemake.egg-info/requires.txt
+makemake.egg-info/top_level.txt

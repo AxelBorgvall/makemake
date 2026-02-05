@@ -5,48 +5,6 @@ import re
 import argparse
 import sys
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        prog='makemake',
-        description='Automated Makefile generator for C projects'
-    )
-
-    parser.add_argument('-v', '--verbose', 
-                        action='store_true', 
-                        help='Print the crawl logic and found dependencies')
-
-    parser.add_argument('-cf', '--compiler_flags', 
-                        type=str,
-                        default='-Wall -Wextra -Iinclude -O2',
-                        help='Compiler flags to be passed during compilation')
-
-    parser.add_argument('-ldf', '--linker_flags', 
-                        type=str,
-                        default='',
-                        help='Linker flags to be used during linking')
-    
-    parser.add_argument('-cc', '--compiler', 
-                        type=str,
-                        default='gcc',
-                        help='Compiler to be called')
-    
-    # parser.add_argument('-c','--comments',
-    #                     action='store_true',
-    #                     help='Wether to add cheatsheet like comments to the makefile')
-    
-    parser.add_argument('-bd','--binary_directory',
-                        type=str,
-                        default='.',
-                        help='Directory to put resulting binaries inside'
-                        )
-
-    # parser.add_argument('-n', '--num_things', 
-    #                     type=int,
-    #                     default=1,
-    #                     help='An example numerical parameter (e.g., 20)')
-
-    return parser.parse_args()
-
 def main():
     # Parse commandline args
     args=parse_args()
@@ -82,33 +40,79 @@ def main():
     if args.verbose:
         print("Object files to compile: ",*[o.stem for o in objects])
     
-        
-    
     # Create string for makefile ----------------------------------------------------------
     # Loading templates
     templates_path = pathlib.Path(__file__).parent.resolve()/"templates"   
-    env = Environment(loader=FileSystemLoader(templates_path))
-    def replace_list(strings):
-        return [s.replace('.o','.d') for s in strings]
-    env.filters['replace']=replace_list
-    definition_template = env.get_template('def.j2')
-    flags_template=env.get_template('compilerflags.j2')
-    compile_template=env.get_template('compile.j2')
-    link_template=env.get_template('link.j2')
-    clean_template=env.get_template('clean.j2')
+    templates=make_templates(templates_path)
 
     makestring=""
 
     # Define directories
-    makestring+=definition_template.render(varname="BUILD_DIR",data=build_name)+"\n"
-    makestring+=definition_template.render(varname="BIN_DIR",data=args.binary_directory)+"\n\n"
+    makestring+=templates['def'].render(varname="BUILD_DIR",data=build_name)+"\n"
+    makestring+=templates['def'].render(varname="BIN_DIR",data=args.binary_directory)+"\n\n"
     # Compiler and flags
-    makestring+=flags_template.render(compiler=args.compiler,cflags=args.compiler_flags,ldflags=args.linker_flags)+"\n\n"
+    makestring+=templates['flags'].render(compiler=args.compiler,cflags=args.compiler_flags,ldflags=args.linker_flags)+"\n\n"
     # Define each target
     target_strings=" ".join(t.stem for t in targets )
-    makestring+=definition_template.render(varname="TARGETS",data=target_strings)+"\n\n"
+    makestring+=templates['def'].render(varname="TARGETS",data=target_strings)+"\n\n"
     makestring+="all:$(TARGETS)\n\n"
+    #Write make rules
+    makestring+=write_rules(targets,file_dependencies,c_files,templates,args,build_name)
 
+    makestring+="-include $(wildcard build/*.d)\n\n"
+    makestring+=templates['clean'].render()
+    fpath=pathlib.Path("Makefile")
+    fpath.write_text(makestring)
+
+def make_templates(templates_path):
+    env = Environment(loader=FileSystemLoader(templates_path))
+    def replace_list(strings):
+        return [s.replace('.o','.d') for s in strings]
+    env.filters['replace']=replace_list
+    templates={}
+    templates['def']= env.get_template('def.j2')
+    templates['flags']=env.get_template('compilerflags.j2')
+    templates['compile']=env.get_template('compile.j2')
+    templates['link']=env.get_template('link.j2')
+    templates['clean']=env.get_template('clean.j2')
+    return templates
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        prog='makemake',
+        description='Automated Makefile generator for C projects'
+    )
+
+    parser.add_argument('-v', '--verbose', 
+                        action='store_true', 
+                        help='Print the crawl logic and found dependencies')
+
+    parser.add_argument('-cf', '--compiler_flags', 
+                        type=str,
+                        default='-Wall -Wextra -Iinclude -O2',
+                        help='Compiler flags to be passed during compilation')
+
+    parser.add_argument('-ldf', '--linker_flags', 
+                        type=str,
+                        default='',
+                        help='Linker flags to be used during linking')
+    
+    parser.add_argument('-cc', '--compiler', 
+                        type=str,
+                        default='gcc',
+                        help='Compiler to be called')
+    
+    parser.add_argument('-bd','--binary_directory',
+                        type=str,
+                        default='.',
+                        help='Directory to put resulting binaries inside'
+                        )
+
+    return parser.parse_args()
+
+def write_rules(targets,file_dependencies,c_files,templates,args,build_name):
+    rules_string=""
     compiled_dependencies=[]
 
     for t in targets:
@@ -131,24 +135,18 @@ def main():
         # Compile all needed object files
         for src in sources:
             if src not in compiled_dependencies:
-                makestring+=compile_template.render(
+                rules_string+=templates['compile'].render(
                     obj_path=build_name+"/"+src.stem+".o",
                     src_path=str(src.relative_to(pathlib.Path.cwd()).as_posix())
                 )+"\n\n"
                 compiled_dependencies.append(src)
         
         # Link into an executable
-        makestring+=link_template.render(
+        rules_string+=templates['link'].render(
             all_objs=["\\\n\t"+str(src.relative_to(pathlib.Path.cwd()).as_posix()).replace('.c','.o') for src in sources],
             bin_path=args.binary_directory+"/"+t.stem
         )+"\n\n"
-
-
-    makestring+="-include $(wildcard build/*.d)\n\n"
-    makestring+=clean_template.render()
-    fpath=pathlib.Path("Makefile")
-    fpath.write_text(makestring)
-
+    return rules_string
 
 # Checks listed dependencies in one file
 def get_dependencies(path,dependencies):
