@@ -1,0 +1,6 @@
+# Executable: {{ bin_path }}
+{{ bin_path }}: {{ all_objs | join(' ') }}
+	@mkdir -p $(@D)
+	$(CC) $^ -o {{ bin_path }} $(LDFLAGS)
+
+-include {{ all_objs | replace | join(' ') }}

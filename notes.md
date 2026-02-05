@@ -66,3 +66,12 @@ Step 3: User types ls to show the new Makefile.
 
 # limitations
 - Assumes corresponding .h and .c files share the same name
+
+
+# TODO
+1. switch to using the compile/link templates. DONE 
+2. test normal use. DONE
+3. refactor and clean
+4. test nonstandard fileplacement
+5. idk push that john to github
+6. Add cmake functionality

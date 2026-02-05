@@ -1,0 +1,5 @@
+clean:
+	-rm -rf $(BUILD_DIR)
+	-rm -f $(addprefix $(BIN_DIR)/, $(TARGETS))
+
+.PHONY: all clean $(TARGETS)

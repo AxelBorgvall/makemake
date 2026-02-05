@@ -1,0 +1,4 @@
+# Object: {{ obj_path }}
+{{ obj_path }}: {{ src_path }}
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -MMD -MP -c {{ src_path }} -o {{ obj_path }}

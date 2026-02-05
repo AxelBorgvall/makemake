@@ -88,30 +88,39 @@ def main():
     # Loading templates
     templates_path = pathlib.Path(__file__).parent.resolve()/"templates"   
     env = Environment(loader=FileSystemLoader(templates_path))
+    def replace_list(strings):
+        return [s.replace('.o','.d') for s in strings]
+    env.filters['replace']=replace_list
     definition_template = env.get_template('def.j2')
-    compiler_template=env.get_template('compiler.j2')
-    builder_template=env.get_template('recipe.j2')
+    flags_template=env.get_template('compilerflags.j2')
+    compile_template=env.get_template('compile.j2')
+    link_template=env.get_template('link.j2')
+    clean_template=env.get_template('clean.j2')
+
     makestring=""
 
     # Define directories
     makestring+=definition_template.render(varname="BUILD_DIR",data=build_name)+"\n"
     makestring+=definition_template.render(varname="BIN_DIR",data=args.binary_directory)+"\n\n"
     # Compiler and flags
-    makestring+=compiler_template.render(compiler=args.compiler,cflags=args.compiler_flags,ldflags=args.linker_flags)+"\n\n"
+    makestring+=flags_template.render(compiler=args.compiler,cflags=args.compiler_flags,ldflags=args.linker_flags)+"\n\n"
     # Define each target
     target_strings=" ".join(t.stem for t in targets )
     makestring+=definition_template.render(varname="TARGETS",data=target_strings)+"\n\n"
-    # Define sources for each target
-    # List all targets
+    makestring+="all:$(TARGETS)\n\n"
+
+    compiled_dependencies=[]
+
     for t in targets:
-        makestring+=t.stem+"_SOURCES:="
         sources=set()
         sources.add(t)
-        
+
         queue = [t]
         processed_stems = {t.stem}
+
         while queue:
             curr = queue.pop(0)
+
             for dep in file_dependencies[curr.stem]:
                 if dep.stem in c_files and dep.stem not in processed_stems:
                     processed_stems.add(dep.stem)
@@ -119,17 +128,27 @@ def main():
                     sources.add(c_file)
                     queue.append(c_file)
 
-        makestring+=" ".join(str(s.relative_to(pathlib.Path.cwd()).as_posix()) for s in sources)
-        makestring+="\n"
-    makestring+="\n"
-    # Make all target binaries
-    makestring+="all: $(TARGETS)\n\n"
-    # This adds a function for dynamically compiling and linking and calls it once for every target
-    # Also adds a clean function
-    makestring+=builder_template.render()
+        # Compile all needed object files
+        for src in sources:
+            if src not in compiled_dependencies:
+                makestring+=compile_template.render(
+                    obj_path=build_name+"/"+src.stem+".o",
+                    src_path=str(src.relative_to(pathlib.Path.cwd()).as_posix())
+                )+"\n\n"
+                compiled_dependencies.append(src)
+        
+        # Link into an executable
+        makestring+=link_template.render(
+            all_objs=["\\\n\t"+str(src.relative_to(pathlib.Path.cwd()).as_posix()).replace('.c','.o') for src in sources],
+            bin_path=args.binary_directory+"/"+t.stem
+        )+"\n\n"
 
+
+    makestring+="-include $(wildcard build/*.d)\n\n"
+    makestring+=clean_template.render()
     fpath=pathlib.Path("Makefile")
     fpath.write_text(makestring)
+
 
 # Checks listed dependencies in one file
 def get_dependencies(path,dependencies):
