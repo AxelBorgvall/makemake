@@ -1,0 +1,26 @@
+# 2. Add -MMD and -MP to the compilation step
+$(BUILD_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+
+define GENERATE_RULES
+# 1. Create a list of .d (dependency) files alongside .o files
+$(1)_OBJS := $$(addprefix $$(BUILD_DIR)/, $$(patsubst %.c, %.o, $$($(1)_SOURCES)))
+$(1)_DEPS := $$($(1)_OBJS:.o=.d)
+
+$(1): $$($(1)_OBJS)
+	@mkdir -p $$(BIN_DIR)
+	$$(CC) $$(CFLAGS) $$^ -o $$(BIN_DIR)/$$@ $$(LDFLAGS)
+
+# 3. This is the "Magic" — it includes the generated .d files
+-include $$($(1)_DEPS)
+endef
+
+# Call function for every target
+$(foreach target,$(TARGETS),$(eval $(call GENERATE_RULES,$(target))))
+
+clean:
+	-rm -rf $(BUILD_DIR)
+	-rm -f $(addprefix $(BIN_DIR)/, $(TARGETS))
+
+.PHONY: all clean $(TARGETS)
